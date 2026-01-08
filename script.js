@@ -8,6 +8,7 @@ const supabase = createClient(
 const form = document.getElementById("myForm");
 const sesiEl = document.getElementById("sesi");
 const brandEl = document.getElementById("brand");
+const typeEl = document.getElementById("type");
 
 const inputs = {
   t1: document.getElementById("t1"),
@@ -30,7 +31,7 @@ function todayRange() {
 async function loadData() {
   Object.values(inputs).forEach(i => i.value = "");
 
-  if (!sesiEl.value || !brandEl.value) return;
+  if (!sesiEl.value || !brandEl.value || !typeEl.value) return;
 
   const { start, end } = todayRange();
 
@@ -39,6 +40,7 @@ async function loadData() {
     .select("*")
     .eq("sesi", sesiEl.value)
     .eq("brand", brandEl.value)
+    .eq("type", Number(typeEl.value))
     .gte("created_at", start)
     .lte("created_at", end)
     .limit(1)
@@ -53,14 +55,16 @@ async function loadData() {
 
 sesiEl.addEventListener("change", loadData);
 brandEl.addEventListener("change", loadData);
+typeEl.addEventListener("change", loadData);
 
-/* ===== SUBMIT (INSERT / UPDATE BY SESI+BRAND+DATE) ===== */
+/* ===== SUBMIT ===== */
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
 
   const payload = {
     sesi: Number(sesiEl.value),
     brand: brandEl.value,
+    type: Number(typeEl.value), // 1=Dry, 2=Wet
     t1: inputs.t1.value === "" ? null : Number(inputs.t1.value),
     t2: inputs.t2.value === "" ? null : Number(inputs.t2.value),
     t3: inputs.t3.value === "" ? null : Number(inputs.t3.value),
@@ -80,12 +84,13 @@ form.addEventListener("submit", async (e) => {
 
   if (!confirm.isConfirmed) return;
 
-  /* ===== CEK DATA HARI INI ===== */
+  /* ===== CEK DATA EXIST ===== */
   const { data: existing } = await supabase
     .from("braking")
     .select("id")
     .eq("sesi", payload.sesi)
     .eq("brand", payload.brand)
+    .eq("type", payload.type)
     .gte("created_at", start)
     .lte("created_at", end)
     .limit(1)
@@ -94,16 +99,11 @@ form.addEventListener("submit", async (e) => {
   let result;
 
   if (existing) {
-    /* ===== UPDATE BERDASARKAN SESI + BRAND + TANGGAL ===== */
     result = await supabase
       .from("braking")
       .update(payload)
-      .eq("sesi", payload.sesi)
-      .eq("brand", payload.brand)
-      .gte("created_at", start)
-      .lte("created_at", end);
+      .eq("id", existing.id);
   } else {
-    /* ===== INSERT BARU ===== */
     result = await supabase
       .from("braking")
       .insert([payload]);
